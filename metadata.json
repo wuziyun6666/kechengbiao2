@@ -1,0 +1,5 @@
+{
+  "name": "智能课程表",
+  "description": "上传您的课表截图，自动生成智能周视图课程表。",
+  "requestFramePermissions": []
+}
