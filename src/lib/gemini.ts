@@ -12,7 +12,7 @@ export async function extractScheduleFromImage(base64Image: string, mimeType: st
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Server error: ${response.status}`);
+      throw new Error(errorData.error || `服务器错误: ${response.status}`);
     }
 
     const data = await response.json();
@@ -24,6 +24,9 @@ export async function extractScheduleFromImage(base64Image: string, mimeType: st
     }));
   } catch (error) {
     console.error("Error extracting schedule:", error);
-    throw new Error("Failed to extract schedule from the image. Please try again.");
+    if (error instanceof Error && error.message !== "Failed to fetch") {
+      throw error; // 抛出真实的后端错误信息
+    }
+    throw new Error("无法从图像中提取日程表。请检查网络或重试。");
   }
 }

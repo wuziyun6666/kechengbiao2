@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UploadZone } from './components/UploadZone';
 import { Timetable } from './components/Timetable';
 import { CourseModal } from './components/CourseModal';
@@ -8,12 +8,57 @@ import { Calendar, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
-  const [schedule, setSchedule] = useState<CourseSession[] | null>(null);
+  const [schedule, setSchedule] = useState<CourseSession[] | null>(() => {
+    const saved = localStorage.getItem('timetable_schedule');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<CourseSession | null>(null);
+  
+  const [semesterStartDate, setSemesterStartDate] = useState<string>(() => {
+    const saved = localStorage.getItem('timetable_startDate');
+    if (saved) return saved;
+    
+    // Default to Monday of the current week
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    return monday.toISOString().split('T')[0];
+  });
+
   const [currentWeek, setCurrentWeek] = useState<number>(1);
-  const [semesterStartDate, setSemesterStartDate] = useState<string>('');
+
+  // Auto-calculate current week based on start date
+  useEffect(() => {
+    if (semesterStartDate) {
+      const start = new Date(semesterStartDate);
+      const now = new Date();
+      start.setHours(0, 0, 0, 0);
+      now.setHours(0, 0, 0, 0);
+      const diffTime = now.getTime() - start.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      const week = Math.floor(diffDays / 7) + 1;
+      setCurrentWeek(Math.max(1, week));
+    }
+  }, [semesterStartDate]);
+
+  // Persist schedule
+  useEffect(() => {
+    if (schedule) {
+      localStorage.setItem('timetable_schedule', JSON.stringify(schedule));
+    } else {
+      localStorage.removeItem('timetable_schedule');
+    }
+  }, [schedule]);
+
+  // Persist start date
+  useEffect(() => {
+    if (semesterStartDate) {
+      localStorage.setItem('timetable_startDate', semesterStartDate);
+    }
+  }, [semesterStartDate]);
 
   const handleUpload = async (base64: string, mimeType: string) => {
     setIsProcessing(true);
@@ -56,10 +101,14 @@ export default function App() {
           </div>
           {schedule && (
             <button 
-              onClick={() => setSchedule(null)}
-              className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors"
+              onClick={() => {
+                if (window.confirm('确定要删除当前课表并重新上传吗？')) {
+                  setSchedule(null);
+                }
+              }}
+              className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors"
             >
-              重新上传课表
+              删除并重新上传
             </button>
           )}
         </div>
