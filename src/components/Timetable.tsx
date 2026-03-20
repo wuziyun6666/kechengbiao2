@@ -82,19 +82,19 @@ export function Timetable({ fullSchedule, currentWeek, semesterStartDate, onCour
   const visibleSchedule = fullSchedule.filter(s => s.weeks?.includes(currentWeek));
   
   return (
-    <div className="w-full max-w-7xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[calc(100vh-12rem)] min-h-[600px] max-h-[800px]">
-      <div className="overflow-x-auto flex-1 flex flex-col">
-        <div className="min-w-[800px] flex-1 flex flex-col">
+    <div className="w-full max-w-7xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[calc(100vh-8rem)] min-h-[500px]">
+      <div className="overflow-x-hidden flex-1 flex flex-col">
+        <div className="min-w-full flex-1 flex flex-col">
           {/* Header: Days of the week */}
           <div className="grid grid-cols-8 border-b border-slate-200 bg-slate-50/80 sticky top-0 z-20">
-        <div className="p-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider border-r border-slate-200 flex items-center justify-center">
+        <div className="p-2 sm:p-4 text-center text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider border-r border-slate-200 flex items-center justify-center">
           时间
         </div>
         {DAYS.map((day, index) => (
-          <div key={day} className="p-3 text-center border-r border-slate-200 last:border-r-0 flex flex-col items-center justify-center">
-            <span className="text-sm font-semibold text-slate-700">{day}</span>
+          <div key={day} className="p-1 sm:p-3 text-center border-r border-slate-200 last:border-r-0 flex flex-col items-center justify-center">
+            <span className="text-xs sm:text-sm font-semibold text-slate-700">{day}</span>
             {semesterStartDate && (
-              <span className="text-xs font-medium text-slate-500 mt-0.5">{getDayDate(index)}</span>
+              <span className="text-[10px] sm:text-xs font-medium text-slate-500 mt-0.5">{getDayDate(index)}</span>
             )}
           </div>
         ))}
@@ -111,7 +111,7 @@ export function Timetable({ fullSchedule, currentWeek, semesterStartDate, onCour
               return (
                 <div 
                   key={time} 
-                  className="absolute w-full text-right pr-4 text-xs font-bold text-indigo-600"
+                  className="absolute w-full text-right pr-1 sm:pr-4 text-[10px] sm:text-xs font-bold text-indigo-600"
                   style={{ top: `${topPos}px`, transform: 'translateY(-50%)' }}
                 >
                   {time}
@@ -172,31 +172,31 @@ export function Timetable({ fullSchedule, currentWeek, semesterStartDate, onCour
                     div::-webkit-scrollbar { display: none; }
                   `}</style>
                   
-                  <div className="font-bold text-xs leading-tight mb-0.5">
+                  <div className="font-bold text-[9px] sm:text-xs leading-tight mb-0.5 break-words">
                     {session.courseName}
                   </div>
-                  <div className="text-[10px] opacity-80 mb-1 flex items-center gap-0.5 font-medium">
-                    <Clock className="w-2.5 h-2.5 inline" />
-                    {session.startTime}-{session.endTime}
+                  <div className="text-[8px] sm:text-[10px] opacity-80 mb-1 flex items-center gap-0.5 font-medium">
+                    <Clock className="w-2 h-2 sm:w-2.5 sm:h-2.5 inline shrink-0" />
+                    <span className="truncate">{session.startTime}-{session.endTime}</span>
                   </div>
                   
-                  <div className="mt-auto space-y-1">
+                  <div className="mt-auto space-y-0.5 sm:space-y-1">
                     {session.location && (
-                      <div className="text-[10px] opacity-90 flex items-start gap-0.5">
-                        <MapPin className="w-2.5 h-2.5 inline mt-[1px] shrink-0" />
-                        <span className="leading-tight">{session.location}</span>
+                      <div className="text-[8px] sm:text-[10px] opacity-90 flex items-start gap-0.5">
+                        <MapPin className="w-2 h-2 sm:w-2.5 sm:h-2.5 inline mt-[1px] shrink-0" />
+                        <span className="leading-tight break-words">{session.location}</span>
                       </div>
                     )}
                     {session.teacher && (
-                      <div className="text-[10px] opacity-90 flex items-start gap-0.5">
-                        <User className="w-2.5 h-2.5 inline mt-[1px] shrink-0" />
-                        <span className="leading-tight">{session.teacher}</span>
+                      <div className="text-[8px] sm:text-[10px] opacity-90 flex items-start gap-0.5">
+                        <User className="w-2 h-2 sm:w-2.5 sm:h-2.5 inline mt-[1px] shrink-0" />
+                        <span className="leading-tight break-words">{session.teacher}</span>
                       </div>
                     )}
                     {session.remark && (
-                      <div className="text-[10px] opacity-100 font-medium bg-white/40 p-1 rounded flex items-start gap-0.5 mt-1 border border-white/30">
-                        <FileText className="w-2.5 h-2.5 inline mt-[1px] shrink-0" />
-                        <span className="leading-tight italic">{session.remark}</span>
+                      <div className="text-[8px] sm:text-[10px] opacity-100 font-medium bg-white/40 p-0.5 sm:p-1 rounded flex items-start gap-0.5 mt-0.5 sm:mt-1 border border-white/30">
+                        <FileText className="w-2 h-2 sm:w-2.5 sm:h-2.5 inline mt-[1px] shrink-0" />
+                        <span className="leading-tight italic break-words">{session.remark}</span>
                       </div>
                     )}
                   </div>

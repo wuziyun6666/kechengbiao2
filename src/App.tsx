@@ -5,7 +5,7 @@ import { CourseModal } from './components/CourseModal';
 import { CaptchaModal } from './components/CaptchaModal';
 import { extractScheduleFromImage } from './lib/gemini';
 import { CourseSession } from './types';
-import { Calendar, AlertCircle, ChevronLeft, ChevronRight, Download, X } from 'lucide-react';
+import { Calendar, AlertCircle, ChevronLeft, ChevronRight, Download, X, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
@@ -16,7 +16,9 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<CourseSession | null>(null);
+  const [isAddingCourse, setIsAddingCourse] = useState(false);
   const [pendingUpload, setPendingUpload] = useState<{base64: string, mimeType: string} | null>(null);
+  const [showSuccessPrompt, setShowSuccessPrompt] = useState(false);
   
   const [semesterStartDate, setSemesterStartDate] = useState<string>(() => {
     const saved = localStorage.getItem('timetable_startDate');
@@ -109,6 +111,7 @@ export default function App() {
         setError("我们无法在该图片中找到任何课表信息，请尝试其他图片。");
       } else {
         setSchedule(extractedSchedule);
+        setShowSuccessPrompt(true);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "发生未知错误。");
@@ -124,18 +127,52 @@ export default function App() {
     ));
   };
 
+  const handleAddCourse = (id: string, newSession: Partial<CourseSession>) => {
+    if (!schedule) return;
+    const session: CourseSession = {
+      id: Math.random().toString(36).substr(2, 9),
+      courseName: newSession.courseName || '新课程',
+      dayOfWeek: newSession.dayOfWeek || 1,
+      startTime: newSession.startTime || '08:00',
+      endTime: newSession.endTime || '09:40',
+      location: newSession.location || '',
+      teacher: newSession.teacher || '',
+      remark: newSession.remark || '',
+      weeks: newSession.weeks || [currentWeek],
+      color: `hsl(${Math.random() * 360}, 70%, 85%)`
+    };
+    setSchedule([...schedule, session]);
+    setIsAddingCourse(false);
+  };
+
+  const handleDeleteCourse = (id: string, deleteType: 'single' | 'all') => {
+    if (!schedule) return;
+    if (deleteType === 'all') {
+      setSchedule(schedule.filter(s => s.id !== id));
+    } else if (deleteType === 'single') {
+      setSchedule(schedule.map(s => {
+        if (s.id === id) {
+          const newWeeks = (s.weeks || []).filter(w => w !== currentWeek);
+          return { ...s, weeks: newWeeks };
+        }
+        return s;
+      }).filter(s => s.weeks && s.weeks.length > 0));
+    }
+    setSelectedSession(null);
+  };
+
   const maxWeek = schedule ? Math.max(20, ...schedule.flatMap(s => s.weeks || [])) : 20;
   const filteredSchedule = schedule ? schedule.filter(s => s.weeks?.includes(currentWeek)) : [];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-12 sm:h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="bg-indigo-600 p-2 rounded-lg text-white">
-              <Calendar className="w-5 h-5" />
+            <div className="bg-indigo-600 p-1.5 sm:p-2 rounded-lg text-white">
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+            <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-slate-900">
               智能课程表
             </h1>
           </div>
@@ -165,7 +202,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      <main className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-3 sm:py-8">
         <AnimatePresence mode="wait">
           {!schedule ? (
             <motion.div 
@@ -202,38 +239,36 @@ export default function App() {
               key="timetable"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="space-y-6"
+              className="space-y-3"
             >
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <h2 className="text-xl font-semibold tracking-tight">您的课表</h2>
-                  <div className="hidden sm:block w-px h-6 bg-slate-200"></div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-2.5 sm:p-3 rounded-xl shadow-sm border border-slate-200">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <div className="flex items-center gap-2">
-                    <label className="text-sm text-slate-500 font-medium whitespace-nowrap">第一周开始于：</label>
+                    <label className="text-xs sm:text-sm text-slate-500 font-medium whitespace-nowrap">第一周：</label>
                     <input 
                       type="date" 
                       value={semesterStartDate}
                       onChange={(e) => setSemesterStartDate(e.target.value)}
-                      className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-slate-50 text-slate-700"
+                      className="text-xs sm:text-sm border border-slate-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-slate-50 text-slate-700"
                     />
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-between sm:justify-end gap-4 w-full lg:w-auto">
-                  <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                  <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200">
                     <button
                       onClick={() => setCurrentWeek(w => Math.max(1, w - 1))}
                       disabled={currentWeek <= 1}
-                      className="p-1.5 rounded-lg hover:bg-white hover:shadow-sm disabled:opacity-50 transition-all"
+                      className="p-1 rounded-md hover:bg-white hover:shadow-sm disabled:opacity-50 transition-all"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
                     
-                    <div className="relative flex items-center justify-center min-w-[5rem]">
+                    <div className="relative flex items-center justify-center min-w-[4.5rem]">
                       <select
                         value={currentWeek}
                         onChange={(e) => setCurrentWeek(Number(e.target.value))}
-                        className="appearance-none bg-transparent font-semibold text-sm text-center outline-none cursor-pointer hover:text-indigo-600 z-10 w-full"
+                        className="appearance-none bg-transparent font-semibold text-xs sm:text-sm text-center outline-none cursor-pointer hover:text-indigo-600 z-10 w-full"
                       >
                         {Array.from({ length: maxWeek }, (_, i) => i + 1).map(w => (
                           <option key={w} value={w}>第 {w} 周</option>
@@ -244,14 +279,23 @@ export default function App() {
                     <button
                       onClick={() => setCurrentWeek(w => Math.min(maxWeek, w + 1))}
                       disabled={currentWeek >= maxWeek}
-                      className="p-1.5 rounded-lg hover:bg-white hover:shadow-sm disabled:opacity-50 transition-all"
+                      className="p-1 rounded-md hover:bg-white hover:shadow-sm disabled:opacity-50 transition-all"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <div className="text-xs font-medium text-slate-500 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 whitespace-nowrap">
-                    {filteredSchedule.length} 节课
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs font-medium text-slate-500 bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 whitespace-nowrap">
+                      {filteredSchedule.length} 节课
+                    </div>
+                    <button
+                      onClick={() => setIsAddingCourse(true)}
+                      className="flex items-center gap-1 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-2.5 py-1.5 rounded-lg transition-colors shadow-sm"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      添加
+                    </button>
                   </div>
                 </div>
               </div>
@@ -272,12 +316,67 @@ export default function App() {
           onClose={() => setPendingUpload(null)}
           onVerify={processUpload}
         />
+        {isAddingCourse && (
+          <CourseModal 
+            session={{
+              id: 'new',
+              courseName: '',
+              dayOfWeek: 1,
+              startTime: '08:00',
+              endTime: '09:40',
+              location: '',
+              teacher: '',
+              remark: '',
+              weeks: [currentWeek],
+              color: ''
+            }} 
+            currentWeek={currentWeek}
+            isNew={true}
+            onClose={() => setIsAddingCourse(false)} 
+            onSave={handleAddCourse}
+            onDelete={() => {}}
+          />
+        )}
         {selectedSession && (
           <CourseModal 
             session={selectedSession} 
+            currentWeek={currentWeek}
             onClose={() => setSelectedSession(null)} 
             onSave={handleSaveCourse}
+            onDelete={handleDeleteCourse}
           />
+        )}
+        {showSuccessPrompt && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col"
+            >
+              <div className="flex justify-between items-start p-5 border-b border-slate-100 bg-emerald-50/50">
+                <h3 className="font-semibold text-xl text-slate-800 flex items-center gap-2">
+                  <span className="text-emerald-500">✨</span> 识别成功
+                </h3>
+                <button onClick={() => setShowSuccessPrompt(false)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-full transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 text-slate-600">
+                <p className="text-sm leading-relaxed mb-4">
+                  课表已成功生成！为了防止 AI 识别出现偏差，<strong>请您务必仔细核对一遍</strong>。
+                </p>
+                <p className="text-sm leading-relaxed">
+                  如果发现任何错误（如课程名称不对、时间错误、多课或少课），您可以直接<strong>点击对应的课程色块</strong>进行手动修改或删除。
+                </p>
+              </div>
+              <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button onClick={() => setShowSuccessPrompt(false)} className="px-5 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all">
+                  我知道了
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
         {showInstallGuide && (
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">

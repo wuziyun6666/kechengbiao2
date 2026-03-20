@@ -32,7 +32,7 @@ async function startServer() {
       const ai = new GoogleGenAI({ apiKey });
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.5-flash",
         contents: {
           parts: [
             {
@@ -115,14 +115,23 @@ CRITICAL RULES FOR ACCURACY:
       
       if (error instanceof Error) {
         errorMessage = error.message;
-        try {
-          // Try to parse the error message if it's a JSON string from the API
-          const parsedError = JSON.parse(error.message);
-          if (parsedError.error && parsedError.error.message) {
-            errorMessage = parsedError.error.message;
+        
+        // Handle specific API key errors
+        if (errorMessage.includes("API key not valid") || errorMessage.includes("API_KEY_INVALID") || errorMessage.includes("400")) {
+          errorMessage = "您的 API 密钥无效。请检查您在 Render 的 Environment 环境变量中填写的 GEMINI_API_KEY 是否正确，确保没有多余的空格，并且是从 Google AI Studio 生成的最新密钥。";
+        } else {
+          try {
+            // Try to parse the error message if it's a JSON string from the API
+            const parsedError = JSON.parse(error.message);
+            if (parsedError.error && parsedError.error.message) {
+              errorMessage = parsedError.error.message;
+              if (errorMessage.includes("API key not valid") || errorMessage.includes("API_KEY_INVALID") || errorMessage.includes("400")) {
+                errorMessage = "您的 API 密钥无效。请检查您在 Render 的 Environment 环境变量中填写的 GEMINI_API_KEY 是否正确，确保没有多余的空格，并且是从 Google AI Studio 生成的最新密钥。";
+              }
+            }
+          } catch (e) {
+            // If it's not JSON, just use the original message
           }
-        } catch (e) {
-          // If it's not JSON, just use the original message
         }
       }
       

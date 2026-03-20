@@ -1,23 +1,70 @@
 import React, { useState, useEffect } from 'react';
 import { CourseSession } from '../types';
-import { X, MapPin, User, Clock, Calendar, FileText, BookOpen } from 'lucide-react';
+import { X, MapPin, User, Clock, Calendar, FileText, BookOpen, Trash2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface Props {
   session: CourseSession;
+  currentWeek: number;
+  isNew?: boolean;
   onClose: () => void;
   onSave: (id: string, updatedSession: Partial<CourseSession>) => void;
+  onDelete: (id: string, type: 'single' | 'all') => void;
 }
 
 const DAYS = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
 
-export function CourseModal({ session, onClose, onSave }: Props) {
+const parseWeeks = (input: string): number[] => {
+  const weeks = new Set<number>();
+  const parts = input.split(/[,，]/);
+  for (const part of parts) {
+    const range = part.split('-');
+    if (range.length === 2) {
+      const start = parseInt(range[0].trim());
+      const end = parseInt(range[1].trim());
+      if (!isNaN(start) && !isNaN(end)) {
+        for (let i = start; i <= end; i++) weeks.add(i);
+      }
+    } else {
+      const num = parseInt(part.trim());
+      if (!isNaN(num)) weeks.add(num);
+    }
+  }
+  return Array.from(weeks).sort((a, b) => a - b);
+};
+
+const formatWeeks = (weeks: number[]): string => {
+  if (!weeks || weeks.length === 0) return '';
+  // Simple formatting for now
+  let result = [];
+  let start = weeks[0];
+  let end = weeks[0];
+  for (let i = 1; i < weeks.length; i++) {
+    if (weeks[i] === end + 1) {
+      end = weeks[i];
+    } else {
+      result.push(start === end ? `${start}` : `${start}-${end}`);
+      start = weeks[i];
+      end = weeks[i];
+    }
+  }
+  result.push(start === end ? `${start}` : `${start}-${end}`);
+  return result.join(', ');
+};
+
+export function CourseModal({ session, currentWeek, isNew, onClose, onSave, onDelete }: Props) {
   const [courseName, setCourseName] = useState(session.courseName || '');
+  const [dayOfWeek, setDayOfWeek] = useState(session.dayOfWeek || 1);
   const [startTime, setStartTime] = useState(session.startTime || '');
   const [endTime, setEndTime] = useState(session.endTime || '');
   const [location, setLocation] = useState(session.location || '');
   const [teacher, setTeacher] = useState(session.teacher || '');
   const [remark, setRemark] = useState(session.remark || '');
+  const [weeksInput, setWeeksInput] = useState(() => {
+    if (session.weeks && session.weeks.length > 0) return formatWeeks(session.weeks);
+    return currentWeek.toString();
+  });
+  const [showDeleteOptions, setShowDeleteOptions] = useState(false);
 
   // Close on escape key
   useEffect(() => {
@@ -39,18 +86,62 @@ export function CourseModal({ session, onClose, onSave }: Props) {
         {/* Header */}
         <div className="flex justify-between items-start p-5 border-b border-slate-100 bg-slate-50/50">
           <h3 className="font-semibold text-xl text-slate-800 pr-4 leading-tight flex items-center gap-2">
-            编辑课程
+            {isNew ? '添加课程' : '编辑课程'}
           </h3>
-          <button 
-            onClick={onClose} 
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-full transition-colors shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {!isNew && !showDeleteOptions && (
+              <button 
+                onClick={() => setShowDeleteOptions(true)}
+                className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors shrink-0"
+                title="删除课程"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            )}
+            <button 
+              onClick={onClose} 
+              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-full transition-colors shrink-0"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
         
         {/* Body */}
         <div className="p-5 space-y-4 overflow-y-auto">
+          {showDeleteOptions && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="bg-red-50 border border-red-100 rounded-xl p-4 mb-2"
+            >
+              <div className="flex items-center gap-2 text-red-700 font-medium mb-3">
+                <AlertCircle className="w-5 h-5" />
+                确认删除该课程？
+              </div>
+              <div className="flex flex-col gap-2">
+                <button 
+                  onClick={() => onDelete(session.id, 'single')}
+                  className="w-full px-4 py-2.5 text-sm font-medium text-red-700 bg-white border border-red-200 hover:bg-red-50 rounded-lg transition-colors text-left"
+                >
+                  仅删除本周 (第{currentWeek}周)
+                </button>
+                <button 
+                  onClick={() => onDelete(session.id, 'all')}
+                  className="w-full px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-left"
+                >
+                  删除本学期所有该课程
+                </button>
+                <button 
+                  onClick={() => setShowDeleteOptions(false)}
+                  className="w-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200/50 rounded-lg transition-colors mt-1"
+                >
+                  取消
+                </button>
+              </div>
+            </motion.div>
+          )}
+
           <div className="space-y-3">
             
             <div className="flex items-center gap-3 text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
@@ -70,7 +161,15 @@ export function CourseModal({ session, onClose, onSave }: Props) {
               <div className="bg-white p-1.5 rounded-lg shadow-sm border border-slate-200/60 shrink-0">
                 <Calendar className="w-4 h-4 text-indigo-500" />
               </div>
-              <span className="font-medium px-1">{DAYS[session.dayOfWeek - 1]}</span>
+              <select 
+                className="w-full bg-transparent border-none outline-none font-medium text-slate-800"
+                value={dayOfWeek}
+                onChange={(e) => setDayOfWeek(parseInt(e.target.value))}
+              >
+                {DAYS.map((day, i) => (
+                  <option key={i} value={i + 1}>{day}</option>
+                ))}
+              </select>
             </div>
             
             <div className="flex items-center gap-3 text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
@@ -92,6 +191,19 @@ export function CourseModal({ session, onClose, onSave }: Props) {
                   onChange={(e) => setEndTime(e.target.value)}
                 />
               </div>
+            </div>
+
+            <div className="flex items-center gap-3 text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
+              <div className="bg-white p-1.5 rounded-lg shadow-sm border border-slate-200/60 shrink-0">
+                <Calendar className="w-4 h-4 text-orange-500" />
+              </div>
+              <input 
+                type="text"
+                className="w-full bg-transparent border-none outline-none font-medium text-slate-800 placeholder:text-slate-400"
+                placeholder="上课周数 (如: 1-16, 18)"
+                value={weeksInput}
+                onChange={(e) => setWeeksInput(e.target.value)}
+              />
             </div>
 
             <div className="flex items-center gap-3 text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
@@ -147,11 +259,13 @@ export function CourseModal({ session, onClose, onSave }: Props) {
             onClick={() => {
               onSave(session.id, {
                 courseName,
+                dayOfWeek,
                 startTime,
                 endTime,
                 location,
                 teacher,
-                remark
+                remark,
+                weeks: parseWeeks(weeksInput)
               });
               onClose();
             }} 
