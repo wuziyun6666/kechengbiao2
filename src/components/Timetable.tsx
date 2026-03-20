@@ -10,7 +10,7 @@ interface TimetableProps {
 }
 
 const DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-const PIXELS_PER_MINUTE = 2.5; // Increased for better text visibility
+const PIXELS_PER_MINUTE = 1.5; // Decreased to compress course block size
 
 const PALETTE = [
   'bg-blue-100 text-blue-900 border-blue-200 hover:bg-blue-200/80',
@@ -83,8 +83,10 @@ export function Timetable({ fullSchedule, currentWeek, semesterStartDate, onCour
   
   return (
     <div className="w-full max-w-7xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[calc(100vh-12rem)] min-h-[600px] max-h-[800px]">
-      {/* Header: Days of the week */}
-      <div className="grid grid-cols-8 border-b border-slate-200 bg-slate-50/80 sticky top-0 z-20">
+      <div className="overflow-x-auto flex-1 flex flex-col">
+        <div className="min-w-[800px] flex-1 flex flex-col">
+          {/* Header: Days of the week */}
+          <div className="grid grid-cols-8 border-b border-slate-200 bg-slate-50/80 sticky top-0 z-20">
         <div className="p-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider border-r border-slate-200 flex items-center justify-center">
           时间
         </div>
@@ -155,12 +157,12 @@ export function Timetable({ fullSchedule, currentWeek, semesterStartDate, onCour
                 <div
                   key={`${session.id || idx}`}
                   onClick={() => onCourseClick(session)}
-                  className={`absolute rounded-xl border p-2 shadow-sm overflow-y-auto transition-all hover:shadow-md hover:z-30 flex flex-col cursor-pointer ${colorClass}`}
+                  className={`absolute rounded-lg border p-1.5 shadow-sm overflow-y-auto transition-all hover:shadow-md hover:z-30 flex flex-col cursor-pointer ${colorClass}`}
                   style={{
                     top: `${top}px`,
                     height: `${height}px`,
-                    left: `calc(${(session.dayOfWeek - 1) * (100 / 7)}% + 4px)`,
-                    width: `calc(${100 / 7}% - 8px)`,
+                    left: `calc(${(session.dayOfWeek - 1) * (100 / 7)}% + 2px)`,
+                    width: `calc(${100 / 7}% - 4px)`,
                     // Hide scrollbar for cleaner look but keep scrollability
                     scrollbarWidth: 'none',
                     msOverflowStyle: 'none'
@@ -170,31 +172,31 @@ export function Timetable({ fullSchedule, currentWeek, semesterStartDate, onCour
                     div::-webkit-scrollbar { display: none; }
                   `}</style>
                   
-                  <div className="font-bold text-sm leading-tight mb-1">
+                  <div className="font-bold text-xs leading-tight mb-0.5">
                     {session.courseName}
                   </div>
-                  <div className="text-xs opacity-80 mb-1.5 flex items-center gap-1 font-medium">
-                    <Clock className="w-3 h-3 inline" />
-                    {session.startTime} - {session.endTime}
+                  <div className="text-[10px] opacity-80 mb-1 flex items-center gap-0.5 font-medium">
+                    <Clock className="w-2.5 h-2.5 inline" />
+                    {session.startTime}-{session.endTime}
                   </div>
                   
-                  <div className="mt-auto space-y-1.5">
+                  <div className="mt-auto space-y-1">
                     {session.location && (
-                      <div className="text-xs opacity-90 flex items-start gap-1">
-                        <MapPin className="w-3.5 h-3.5 inline mt-0.5 shrink-0" />
-                        <span className="leading-snug">{session.location}</span>
+                      <div className="text-[10px] opacity-90 flex items-start gap-0.5">
+                        <MapPin className="w-2.5 h-2.5 inline mt-[1px] shrink-0" />
+                        <span className="leading-tight">{session.location}</span>
                       </div>
                     )}
                     {session.teacher && (
-                      <div className="text-xs opacity-90 flex items-start gap-1">
-                        <User className="w-3.5 h-3.5 inline mt-0.5 shrink-0" />
-                        <span className="leading-snug">{session.teacher}</span>
+                      <div className="text-[10px] opacity-90 flex items-start gap-0.5">
+                        <User className="w-2.5 h-2.5 inline mt-[1px] shrink-0" />
+                        <span className="leading-tight">{session.teacher}</span>
                       </div>
                     )}
                     {session.remark && (
-                      <div className="text-xs opacity-100 font-medium bg-white/40 p-1.5 rounded-md flex items-start gap-1 mt-2 border border-white/30">
-                        <FileText className="w-3.5 h-3.5 inline mt-0.5 shrink-0" />
-                        <span className="leading-snug italic">{session.remark}</span>
+                      <div className="text-[10px] opacity-100 font-medium bg-white/40 p-1 rounded flex items-start gap-0.5 mt-1 border border-white/30">
+                        <FileText className="w-2.5 h-2.5 inline mt-[1px] shrink-0" />
+                        <span className="leading-tight italic">{session.remark}</span>
                       </div>
                     )}
                   </div>
@@ -203,6 +205,8 @@ export function Timetable({ fullSchedule, currentWeek, semesterStartDate, onCour
             })}
           </div>
         </div>
+      </div>
+      </div>
       </div>
     </div>
   );

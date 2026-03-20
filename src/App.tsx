@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { UploadZone } from './components/UploadZone';
 import { Timetable } from './components/Timetable';
 import { CourseModal } from './components/CourseModal';
+import { CaptchaModal } from './components/CaptchaModal';
 import { extractScheduleFromImage } from './lib/gemini';
 import { CourseSession } from './types';
-import { Calendar, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, AlertCircle, ChevronLeft, ChevronRight, Download, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<CourseSession | null>(null);
+  const [pendingUpload, setPendingUpload] = useState<{base64: string, mimeType: string} | null>(null);
   
   const [semesterStartDate, setSemesterStartDate] = useState<string>(() => {
     const saved = localStorage.getItem('timetable_startDate');
@@ -29,6 +31,34 @@ export default function App() {
   });
 
   const [currentWeek, setCurrentWeek] = useState<number>(1);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  // Listen for PWA install prompt
+  useEffect(() => {
+    setIsStandalone(window.matchMedia('(display-mode: standalone)').matches);
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setInstallPrompt(null);
+      }
+    } else {
+      // Fallback for iOS or browsers that don't support the prompt API
+      setShowInstallGuide(true);
+    }
+  };
 
   // Auto-calculate current week based on start date
   useEffect(() => {
@@ -60,9 +90,19 @@ export default function App() {
     }
   }, [semesterStartDate]);
 
-  const handleUpload = async (base64: string, mimeType: string) => {
+  const handleImageSelect = (base64: string, mimeType: string) => {
+    setError(null);
+    setPendingUpload({ base64, mimeType });
+  };
+
+  const processUpload = async () => {
+    if (!pendingUpload) return;
+    
+    const { base64, mimeType } = pendingUpload;
+    setPendingUpload(null);
     setIsProcessing(true);
     setError(null);
+    
     try {
       const extractedSchedule = await extractScheduleFromImage(base64, mimeType);
       if (extractedSchedule.length === 0) {
@@ -77,10 +117,10 @@ export default function App() {
     }
   };
 
-  const handleSaveRemark = (id: string, remark: string) => {
+  const handleSaveCourse = (id: string, updatedSession: Partial<CourseSession>) => {
     if (!schedule) return;
     setSchedule(schedule.map(session => 
-      session.id === id ? { ...session, remark } : session
+      session.id === id ? { ...session, ...updatedSession } : session
     ));
   };
 
@@ -99,18 +139,29 @@ export default function App() {
               智能课程表
             </h1>
           </div>
-          {schedule && (
-            <button 
-              onClick={() => {
-                if (window.confirm('确定要删除当前课表并重新上传吗？')) {
-                  setSchedule(null);
-                }
-              }}
-              className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors"
-            >
-              删除并重新上传
-            </button>
-          )}
+          <div className="flex items-center gap-4">
+            {!isStandalone && (
+              <button
+                onClick={handleInstallClick}
+                className="text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                <Download className="w-4 h-4" />
+                下载 App
+              </button>
+            )}
+            {schedule && (
+              <button 
+                onClick={() => {
+                  if (window.confirm('确定要删除当前课表并重新上传吗？')) {
+                    setSchedule(null);
+                  }
+                }}
+                className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors"
+              >
+                删除并重新上传
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -133,7 +184,7 @@ export default function App() {
                 </p>
               </div>
 
-              <UploadZone onUpload={handleUpload} isProcessing={isProcessing} />
+              <UploadZone onUpload={handleImageSelect} isProcessing={isProcessing} />
 
               {error && (
                 <motion.div 
@@ -216,12 +267,49 @@ export default function App() {
       </main>
 
       <AnimatePresence>
+        <CaptchaModal 
+          isOpen={!!pendingUpload}
+          onClose={() => setPendingUpload(null)}
+          onVerify={processUpload}
+        />
         {selectedSession && (
           <CourseModal 
             session={selectedSession} 
             onClose={() => setSelectedSession(null)} 
-            onSave={handleSaveRemark}
+            onSave={handleSaveCourse}
           />
+        )}
+        {showInstallGuide && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col"
+            >
+              <div className="flex justify-between items-start p-5 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="font-semibold text-xl text-slate-800">如何下载 App</h3>
+                <button onClick={() => setShowInstallGuide(false)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-full transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-6 text-slate-600">
+                <div>
+                  <h4 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">🍎 苹果 (iOS) 用户</h4>
+                  <p className="text-sm leading-relaxed">由于苹果系统限制，无法一键下载。请在 <strong>Safari 浏览器</strong> 中打开本网页，点击屏幕正下方的 <strong>「分享」</strong> 图标（一个方块加向上箭头），然后向下滑动菜单，找到并点击 <strong>「添加到主屏幕」</strong>。</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">🤖 安卓 (Android) 用户</h4>
+                  <p className="text-sm leading-relaxed">请点击浏览器右上角的 <strong>「菜单」</strong>（三个点），然后选择 <strong>「添加到主屏幕」</strong> 或 <strong>「安装应用」</strong>。</p>
+                </div>
+              </div>
+              <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button onClick={() => setShowInstallGuide(false)} className="px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all">
+                  我知道了
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
