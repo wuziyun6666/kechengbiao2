@@ -32,7 +32,7 @@ async function startServer() {
       const ai = new GoogleGenAI({ apiKey });
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.5-flash",
         contents: {
           parts: [
             {
@@ -117,7 +117,9 @@ CRITICAL RULES FOR ACCURACY:
         errorMessage = error.message;
         
         // Handle specific API key errors
-        if (errorMessage.includes("API key not valid") || errorMessage.includes("API_KEY_INVALID") || errorMessage.includes("400")) {
+        if (errorMessage.toLowerCase().includes("quota") || errorMessage.includes("429") || errorMessage.toLowerCase().includes("exceeded")) {
+          errorMessage = "当前使用人数过多或已达到免费接口的频率限制，请稍等一两分钟后再试。";
+        } else if (errorMessage.includes("API key not valid") || errorMessage.includes("API_KEY_INVALID") || errorMessage.includes("400")) {
           errorMessage = "您的 API 密钥无效。请检查您在 Render 的 Environment 环境变量中填写的 GEMINI_API_KEY 是否正确，确保没有多余的空格，并且是从 Google AI Studio 生成的最新密钥。";
         } else {
           try {
@@ -125,7 +127,9 @@ CRITICAL RULES FOR ACCURACY:
             const parsedError = JSON.parse(error.message);
             if (parsedError.error && parsedError.error.message) {
               errorMessage = parsedError.error.message;
-              if (errorMessage.includes("API key not valid") || errorMessage.includes("API_KEY_INVALID") || errorMessage.includes("400")) {
+              if (errorMessage.toLowerCase().includes("quota") || errorMessage.includes("429") || errorMessage.toLowerCase().includes("exceeded")) {
+                errorMessage = "当前使用人数过多或已达到免费接口的频率限制，请稍等一两分钟后再试。";
+              } else if (errorMessage.includes("API key not valid") || errorMessage.includes("API_KEY_INVALID") || errorMessage.includes("400")) {
                 errorMessage = "您的 API 密钥无效。请检查您在 Render 的 Environment 环境变量中填写的 GEMINI_API_KEY 是否正确，确保没有多余的空格，并且是从 Google AI Studio 生成的最新密钥。";
               }
             }
