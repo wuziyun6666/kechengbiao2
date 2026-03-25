@@ -51,13 +51,14 @@ export default function App() {
 
   const handleInstallClick = async () => {
     if (installPrompt) {
+      // 如果浏览器支持原生弹窗（如安卓 Chrome、Edge），直接呼出系统级“添加到主屏幕”
       installPrompt.prompt();
       const { outcome } = await installPrompt.userChoice;
       if (outcome === 'accepted') {
         setInstallPrompt(null);
       }
     } else {
-      // Fallback for iOS or browsers that don't support the prompt API
+      // 如果浏览器不支持（如苹果 iOS、微信、QQ内置浏览器），只能弹出我们的引导说明
       setShowInstallGuide(true);
     }
   };
@@ -393,18 +394,43 @@ export default function App() {
                 </button>
               </div>
               <div className="p-6 space-y-6 text-slate-600">
-                <div>
-                  <h4 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">🍎 苹果 (iOS) 用户</h4>
-                  <p className="text-sm leading-relaxed">由于苹果系统限制，无法一键下载。请在 <strong>Safari 浏览器</strong> 中打开本网页，点击屏幕正下方的 <strong>「分享」</strong> 图标（一个方块加向上箭头），然后向下滑动菜单，找到并点击 <strong>「添加到主屏幕」</strong>。</p>
-                </div>
+                {installPrompt && (
+                  <div className="text-center pb-6 border-b border-slate-100">
+                    <button 
+                      onClick={async () => {
+                        installPrompt.prompt();
+                        const { outcome } = await installPrompt.userChoice;
+                        if (outcome === 'accepted') {
+                          setInstallPrompt(null);
+                          setShowInstallGuide(false);
+                        }
+                      }}
+                      className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium shadow-sm transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Download className="w-5 h-5" />
+                      一键安装到桌面
+                    </button>
+                    <p className="text-xs text-slate-500 mt-3">您的浏览器支持直接安装，点击上方按钮即可</p>
+                  </div>
+                )}
                 <div>
                   <h4 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">🤖 安卓 (Android) 用户</h4>
-                  <p className="text-sm leading-relaxed">请点击浏览器右上角的 <strong>「菜单」</strong>（三个点），然后选择 <strong>「添加到主屏幕」</strong> 或 <strong>「安装应用」</strong>。</p>
+                  <p className="text-sm leading-relaxed">
+                    1. 若在微信/QQ中，请先点击右上角选择<strong>「在浏览器打开」</strong>。<br/>
+                    2. 在浏览器中，点击右上角或底部的<strong>「菜单」</strong>（三个点/三条杠）。<br/>
+                    3. 选择<strong>「添加到主屏幕」</strong>或<strong>「安装应用」</strong>。
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">🍎 苹果 (iOS) 用户</h4>
+                  <p className="text-sm leading-relaxed">
+                    请在 <strong>Safari 浏览器</strong> 中打开，点击屏幕正下方的 <strong>「分享」</strong> 图标（方块加向上箭头），向下滑动找到并点击 <strong>「添加到主屏幕」</strong>。
+                  </p>
                 </div>
               </div>
               <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-                <button onClick={() => setShowInstallGuide(false)} className="px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all">
-                  我知道了
+                <button onClick={() => setShowInstallGuide(false)} className="px-5 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all">
+                  关闭
                 </button>
               </div>
             </motion.div>

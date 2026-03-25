@@ -10,7 +10,6 @@ interface TimetableProps {
 }
 
 const DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-const PIXELS_PER_MINUTE = 1.5; // Decreased to compress course block size
 
 const PALETTE = [
   'bg-blue-100 text-blue-900 border-blue-200 hover:bg-blue-200/80',
@@ -60,153 +59,111 @@ export function Timetable({ fullSchedule, currentWeek, semesterStartDate, onCour
     return `${targetDate.getMonth() + 1}/${targetDate.getDate()}`;
   };
 
-  const timeSet = new Set<string>();
-  if (fullSchedule.length > 0) {
-    fullSchedule.forEach(s => {
-      if (s.startTime) timeSet.add(s.startTime);
-      if (s.endTime) timeSet.add(s.endTime);
-    });
-  } else {
-    timeSet.add("08:00");
-    timeSet.add("22:00");
-  }
-
-  const uniqueTimes = Array.from(timeSet).sort((a, b) => getMinutesFromStart(a) - getMinutesFromStart(b));
-  
-  // Add 30 minutes padding to the top and bottom for better aesthetics
-  const minMins = Math.max(0, getMinutesFromStart(uniqueTimes[0]) - 30);
-  const maxMins = Math.min(24 * 60, getMinutesFromStart(uniqueTimes[uniqueTimes.length - 1]) + 30);
-  
-  const totalMins = Math.max(maxMins - minMins, 60); // At least 60 mins to avoid 0 height
-
   const visibleSchedule = fullSchedule.filter(s => s.weeks?.includes(currentWeek));
-  
+
+  // Extract unique start times to create rows (Method B: sequential slots, no gaps)
+  const timeSlots = Array.from(new Set(visibleSchedule.map(s => s.startTime)))
+    .filter(Boolean)
+    .sort((a, b) => getMinutesFromStart(a) - getMinutesFromStart(b));
+
   return (
     <div className="w-full max-w-7xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[calc(100vh-8rem)] min-h-[500px]">
-      <div className="overflow-x-hidden flex-1 flex flex-col">
-        <div className="min-w-full flex-1 flex flex-col">
+      {/* Scrollable Container */}
+      <div className="overflow-x-auto flex-1 flex flex-col snap-x snap-mandatory hide-scrollbar">
+        <style>{`
+          .hide-scrollbar::-webkit-scrollbar { display: none; }
+          .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        `}</style>
+        
+        <div className="flex flex-col min-w-max sm:min-w-full flex-1">
+          
           {/* Header: Days of the week */}
-          <div className="grid grid-cols-8 border-b border-slate-200 bg-slate-50/80 sticky top-0 z-20">
-        <div className="p-2 sm:p-4 text-center text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider border-r border-slate-200 flex items-center justify-center">
-          时间
-        </div>
-        {DAYS.map((day, index) => (
-          <div key={day} className="p-1 sm:p-3 text-center border-r border-slate-200 last:border-r-0 flex flex-col items-center justify-center">
-            <span className="text-xs sm:text-sm font-semibold text-slate-700">{day}</span>
-            {semesterStartDate && (
-              <span className="text-[10px] sm:text-xs font-medium text-slate-500 mt-0.5">{getDayDate(index)}</span>
+          <div className="flex border-b border-slate-200 bg-slate-50/90 backdrop-blur-md sticky top-0 z-30">
+            <div className="w-10 sm:w-14 shrink-0 sticky left-0 z-40 bg-slate-50/90 backdrop-blur-md border-r border-slate-200 flex items-center justify-center text-[10px] sm:text-xs font-medium text-slate-500">
+              时间
+            </div>
+            {DAYS.map((day, index) => (
+              <div 
+                key={day} 
+                className="w-[19vw] min-w-[4.5rem] sm:w-0 sm:flex-1 shrink-0 border-r border-slate-200 last:border-r-0 py-2 sm:py-3 flex flex-col items-center justify-center snap-start"
+              >
+                <span className="text-xs sm:text-sm font-semibold text-slate-700">{day}</span>
+                {semesterStartDate && (
+                  <span className="text-[10px] sm:text-xs font-medium text-slate-500 mt-0.5">{getDayDate(index)}</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Body: Course Slots */}
+          <div className="flex-1 flex flex-col bg-slate-50/30">
+            {timeSlots.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
+                本周没有课程安排
+              </div>
+            ) : (
+              timeSlots.map((slotTime, slotIndex) => {
+                const coursesInSlot = visibleSchedule.filter(s => s.startTime === slotTime);
+                // Get the most common end time for this slot to display in the left column
+                const endTimes = coursesInSlot.map(s => s.endTime).filter(Boolean);
+                const displayEndTime = endTimes.length > 0 ? endTimes.sort((a,b) =>
+                  endTimes.filter(v => v===a).length - endTimes.filter(v => v===b).length
+                ).pop() : '';
+
+                return (
+                  <div key={slotTime} className="flex border-b border-slate-200 last:border-b-0 flex-1 min-h-[6rem] sm:min-h-[7rem]">
+                    {/* Time Column */}
+                    <div className="w-10 sm:w-14 shrink-0 sticky left-0 z-20 bg-white/90 backdrop-blur-sm border-r border-slate-200 flex flex-col items-center justify-center py-2 px-1">
+                      <span className="text-[10px] sm:text-xs font-bold text-indigo-600">{slotTime}</span>
+                      {displayEndTime && (
+                        <span className="text-[8px] sm:text-[10px] text-slate-400 mt-0.5">{displayEndTime}</span>
+                      )}
+                    </div>
+
+                    {/* Day Columns */}
+                    {DAYS.map((_, dayIndex) => {
+                      const dayOfWeek = dayIndex + 1;
+                      const sessions = coursesInSlot.filter(s => s.dayOfWeek === dayOfWeek);
+
+                      return (
+                        <div 
+                          key={dayIndex} 
+                          className="w-[19vw] min-w-[4.5rem] sm:w-0 sm:flex-1 shrink-0 border-r border-slate-200 last:border-r-0 p-1 sm:p-1.5 flex flex-col gap-1 snap-start"
+                        >
+                          {sessions.map((session, idx) => (
+                            <div
+                              key={session.id || idx}
+                              onClick={() => onCourseClick(session)}
+                              className={`flex-1 rounded-lg border p-1.5 sm:p-2 shadow-sm transition-all hover:shadow-md cursor-pointer flex flex-col ${courseColorMap[session.courseName] || PALETTE[0]}`}
+                            >
+                              <div className="font-bold text-[10px] sm:text-xs leading-tight mb-1 break-words">
+                                {session.courseName}
+                              </div>
+                              <div className="mt-auto space-y-0.5 sm:space-y-1">
+                                {session.location && (
+                                  <div className="text-[8px] sm:text-[10px] opacity-90 flex items-start gap-0.5">
+                                    <MapPin className="w-2.5 h-2.5 inline mt-[1px] shrink-0" />
+                                    <span className="leading-tight break-words">{session.location}</span>
+                                  </div>
+                                )}
+                                {session.teacher && (
+                                  <div className="text-[8px] sm:text-[10px] opacity-90 flex items-start gap-0.5">
+                                    <User className="w-2.5 h-2.5 inline mt-[1px] shrink-0" />
+                                    <span className="leading-tight break-words">{session.teacher}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })
             )}
           </div>
-        ))}
-      </div>
-
-      {/* Scrollable Grid Area */}
-      <div className="flex-1 overflow-y-auto relative bg-slate-50/30">
-        <div className="grid grid-cols-8 relative" style={{ height: `${totalMins * PIXELS_PER_MINUTE}px`, minHeight: '100%' }}>
-          
-          {/* Time Column & Horizontal Grid Lines */}
-          <div className="col-span-1 border-r border-slate-200 relative bg-white z-10">
-            {uniqueTimes.map((time) => {
-              const topPos = (getMinutesFromStart(time) - minMins) * PIXELS_PER_MINUTE;
-              return (
-                <div 
-                  key={time} 
-                  className="absolute w-full text-right pr-1 sm:pr-4 text-[10px] sm:text-xs font-bold text-indigo-600"
-                  style={{ top: `${topPos}px`, transform: 'translateY(-50%)' }}
-                >
-                  {time}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Vertical Day Columns & Horizontal Lines */}
-          <div className="col-span-7 grid grid-cols-7 relative">
-            {/* Horizontal Lines */}
-            {uniqueTimes.map((time) => {
-              const topPos = (getMinutesFromStart(time) - minMins) * PIXELS_PER_MINUTE;
-              return (
-                <div 
-                  key={`line-${time}`} 
-                  className="absolute w-full border-t border-slate-200 pointer-events-none"
-                  style={{ top: `${topPos}px` }}
-                />
-              );
-            })}
-            
-            {/* Vertical Lines */}
-            {DAYS.map((_, i) => (
-              <div key={`v-line-${i}`} className="border-r border-slate-200 last:border-r-0 h-full" />
-            ))}
-
-            {/* Course Cards */}
-            {visibleSchedule.map((session, idx) => {
-              const startMins = getMinutesFromStart(session.startTime);
-              const endMins = getMinutesFromStart(session.endTime);
-              const duration = endMins - startMins;
-              
-              if (isNaN(startMins) || isNaN(endMins) || duration <= 0 || session.dayOfWeek < 1 || session.dayOfWeek > 7) {
-                return null;
-              }
-
-              const top = (startMins - minMins) * PIXELS_PER_MINUTE;
-              const height = duration * PIXELS_PER_MINUTE;
-              const colorClass = courseColorMap[session.courseName] || PALETTE[0];
-
-              return (
-                <div
-                  key={`${session.id || idx}`}
-                  onClick={() => onCourseClick(session)}
-                  className={`absolute rounded-lg border p-1.5 shadow-sm overflow-y-auto transition-all hover:shadow-md hover:z-30 flex flex-col cursor-pointer ${colorClass}`}
-                  style={{
-                    top: `${top}px`,
-                    height: `${height}px`,
-                    left: `calc(${(session.dayOfWeek - 1) * (100 / 7)}% + 2px)`,
-                    width: `calc(${100 / 7}% - 4px)`,
-                    // Hide scrollbar for cleaner look but keep scrollability
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none'
-                  }}
-                >
-                  <style>{`
-                    div::-webkit-scrollbar { display: none; }
-                  `}</style>
-                  
-                  <div className="font-bold text-[9px] sm:text-xs leading-tight mb-0.5 break-words">
-                    {session.courseName}
-                  </div>
-                  <div className="text-[8px] sm:text-[10px] opacity-80 mb-1 flex items-center gap-0.5 font-medium">
-                    <Clock className="w-2 h-2 sm:w-2.5 sm:h-2.5 inline shrink-0" />
-                    <span className="truncate">{session.startTime}-{session.endTime}</span>
-                  </div>
-                  
-                  <div className="mt-auto space-y-0.5 sm:space-y-1">
-                    {session.location && (
-                      <div className="text-[8px] sm:text-[10px] opacity-90 flex items-start gap-0.5">
-                        <MapPin className="w-2 h-2 sm:w-2.5 sm:h-2.5 inline mt-[1px] shrink-0" />
-                        <span className="leading-tight break-words">{session.location}</span>
-                      </div>
-                    )}
-                    {session.teacher && (
-                      <div className="text-[8px] sm:text-[10px] opacity-90 flex items-start gap-0.5">
-                        <User className="w-2 h-2 sm:w-2.5 sm:h-2.5 inline mt-[1px] shrink-0" />
-                        <span className="leading-tight break-words">{session.teacher}</span>
-                      </div>
-                    )}
-                    {session.remark && (
-                      <div className="text-[8px] sm:text-[10px] opacity-100 font-medium bg-white/40 p-0.5 sm:p-1 rounded flex items-start gap-0.5 mt-0.5 sm:mt-1 border border-white/30">
-                        <FileText className="w-2 h-2 sm:w-2.5 sm:h-2.5 inline mt-[1px] shrink-0" />
-                        <span className="leading-tight italic break-words">{session.remark}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </div>
-      </div>
-      </div>
       </div>
     </div>
   );
